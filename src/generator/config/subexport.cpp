@@ -3,6 +3,7 @@
 #include <numeric>
 #include <cmath>
 #include <climits>
+#include <regex>
 
 #include "config/regmatch.h"
 #include "generator/config/subexport.h"
@@ -700,7 +701,6 @@ void proxyToClash(std::vector<Proxy> &nodes, YAML::Node &yamlnode, const ProxyGr
             if (!x.PublicKey.empty() && !x.ShortID.empty()) {
                 singleproxy["reality-opts"]["public-key"] = x.PublicKey;
                 singleproxy["reality-opts"]["short-id"] = x.ShortID;
-                singleproxy["reality-opts"]["short-id"].SetTag("!!str");
                 if (!x.ClientFingerprint.empty()) {
                     singleproxy["client-fingerprint"] = x.ClientFingerprint;
                 } else if (!x.Fingerprint.empty()) {
@@ -843,17 +843,23 @@ std::string proxyToClash(std::vector<Proxy> &nodes, const std::string &base_conf
 
     proxyToClash(nodes, yamlnode, extra_proxy_group, clashR, ext);
 
+    auto dumpYaml = [](const YAML::Node &node) -> std::string {
+        std::string result = YAML::Dump(node);
+        result = std::regex_replace(result, std::regex("short-id: ([0-9a-fA-F]+)"), "short-id: '$1'");
+        return result;
+    };
+
     if(ext.nodelist)
-        return YAML::Dump(yamlnode);
+        return dumpYaml(yamlnode);
 
     /*
     if(ext.enable_rule_generator)
         rulesetToClash(yamlnode, ruleset_content_array, ext.overwrite_original_rules, ext.clash_new_field_name);
 
-    return YAML::Dump(yamlnode);
+    return dumpYaml(yamlnode);
     */
     if(!ext.enable_rule_generator)
-        return YAML::Dump(yamlnode);
+        return dumpYaml(yamlnode);
 
     if(!ext.managed_config_prefix.empty() || ext.clash_script)
     {
@@ -866,13 +872,13 @@ std::string proxyToClash(std::vector<Proxy> &nodes, const std::string &base_conf
         }
 
         renderClashScript(yamlnode, ruleset_content_array, ext.managed_config_prefix, ext.clash_script, ext.overwrite_original_rules, ext.clash_classical_ruleset);
-        return YAML::Dump(yamlnode);
+        return dumpYaml(yamlnode);
     }
 
     std::string output_content = rulesetToClashStr(yamlnode, ruleset_content_array, ext.overwrite_original_rules, ext.clash_new_field_name);
-    output_content.insert(0, YAML::Dump(yamlnode));
+    output_content.insert(0, dumpYaml(yamlnode));
     //rulesetToClash(yamlnode, ruleset_content_array, ext.overwrite_original_rules, ext.clash_new_field_name);
-    //std::string output_content = YAML::Dump(yamlnode);
+    //std::string output_content = dumpYaml(yamlnode);
 
     return output_content;
 }
